@@ -28,6 +28,21 @@ let selectedFile = null;
 
 const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
+const STATUS_LABELS = {
+  programado: 'Programado',
+  executado: 'Executado',
+  cancelado: 'Cancelado',
+  ativo: 'Ativo',
+  pausado: 'Pausado',
+  erro: 'Erro'
+};
+
+function truncarTexto(texto, max) {
+  if (!texto) return '';
+  const limpo = texto.replace(/\s+/g, ' ').trim();
+  return limpo.length > max ? limpo.slice(0, max) + '...' : limpo;
+}
+
 function authHeaders() {
   const headers = {};
   if (sitePassword) headers['x-site-password'] = sitePassword;
@@ -237,7 +252,9 @@ saveBtn.addEventListener('click', async () => {
 async function loadMessages() {
   const res = await fetch('/api/messages', { headers: authHeaders() });
   if (!res.ok) return;
-  const all = await res.json().then(list => list.filter(matchesSearch));
+  const rawAll = await res.json();
+  atualizarContadores(rawAll);
+  const all = rawAll.filter(matchesSearch);
 
   if (currentFilter === 'agendamentos') {
     renderAgendamentos(all.filter(m => m.schedule).filter(matchesSubFilter));
@@ -251,6 +268,23 @@ async function loadMessages() {
   }
 
   renderMessages(all.filter(m => !!m.sentAt));
+}
+
+function atualizarContadores(all) {
+  const counts = {
+    rascunho: all.filter(m => !m.schedule || m.schedule.status === 'cancelado').length,
+    agendamentos: all.filter(m => m.schedule).length,
+    enviada: all.filter(m => !!m.sentAt).length
+  };
+  tabBtns.forEach(btn => {
+    const label = btn.dataset.label || btn.textContent;
+    btn.textContent = '';
+    btn.append(label + ' ');
+    const span = document.createElement('span');
+    span.className = 'tab-count';
+    span.textContent = `(${counts[btn.dataset.filter] ?? 0})`;
+    btn.appendChild(span);
+  });
 }
 
 function matchesSubFilter(msg) {
@@ -295,34 +329,126 @@ function renderMessages(messages) {
   }
 
   messages.forEach(msg => {
-    const card = document.createElement('div');
-    card.className = 'message-card';
+    messagesList.appendChild(criarLinhaMensagem(msg));
+  });
+}
+
+function criarLinhaMensagem(msg) {
+  const row = document.createElement('div');
+  row.className = 'msg-row';
+
+  function montarCompacto(autoEditar) {
+    row.innerHTML = '';
+    row.classList.remove('expanded');
+
+    const main = document.createElement('div');
+    main.className = 'msg-row-main';
+    main.addEventListener('click', () => montarExpandido(false));
+
+    const titleLine = document.createElement('div');
+    titleLine.className = 'msg-row-title';
+    titleLine.append(msg.title || 'Sem título');
+    if (msg.mediaFile) {
+      const clip = document.createElement('span');
+      clip.className = 'clip-icon';
+      clip.textContent = '📎';
+      titleLine.appendChild(clip);
+    }
+    main.appendChild(titleLine);
+
+    const previewLine = document.createElement('div');
+    previewLine.className = 'msg-row-preview';
+    previewLine.textContent = msg.text
+      ? `Preview: ${truncarTexto(msg.text, 70)}`
+      : (msg.mediaFile ? '📎 Mídia anexada, sem texto' : '');
+    main.appendChild(previewLine);
+
+    const dateLine = document.createElement('div');
+    dateLine.className = 'msg-row-date';
+    dateLine.textContent = msg.sentAt
+      ? `Enviada ${formatDate(msg.sentAt)}${msg.sendCount ? ` (${msg.sendCount}x)` : ''}`
+      : `Criada em ${formatDate(msg.createdAt)}`;
+    main.appendChild(dateLine);
+
+    row.appendChild(main);
+
+    const quickActions = document.createElement('div');
+    quickActions.className = 'msg-row-actions';
+
+    const sendIcon = document.createElement('button');
+    sendIcon.className = 'icon-btn';
+    sendIcon.title = msg.sentAt ? 'Enviar de novo' : 'Enviar agora';
+    sendIcon.textContent = '🚀';
+    sendIcon.addEventListener('click', (e) => {
+      e.stopPropagation();
+      enviarMensagem(msg.id, sendIcon, '🚀');
+    });
+    quickActions.appendChild(sendIcon);
+
+    const editIcon = document.createElement('button');
+    editIcon.className = 'icon-btn';
+    editIcon.title = 'Editar';
+    editIcon.textContent = '✏️';
+    editIcon.addEventListener('click', (e) => {
+      e.stopPropagation();
+      montarExpandido(true);
+    });
+    quickActions.appendChild(editIcon);
+
+    const cloneIcon = document.createElement('button');
+    cloneIcon.className = 'icon-btn';
+    cloneIcon.title = 'Clonar';
+    cloneIcon.textContent = '📋';
+    cloneIcon.addEventListener('click', (e) => {
+      e.stopPropagation();
+      clonarMensagem(msg.id);
+    });
+    quickActions.appendChild(cloneIcon);
+
+    const deleteIcon = document.createElement('button');
+    deleteIcon.className = 'icon-btn';
+    deleteIcon.title = 'Excluir';
+    deleteIcon.textContent = '🗑️';
+    deleteIcon.addEventListener('click', (e) => {
+      e.stopPropagation();
+      excluirMensagem(msg.id);
+    });
+    quickActions.appendChild(deleteIcon);
+
+    row.appendChild(quickActions);
+  }
+
+  function montarExpandido(autoEditar) {
+    row.innerHTML = '';
+    row.classList.add('expanded');
+
+    const body = document.createElement('div');
+    body.className = 'msg-row-expanded-body';
 
     const titleEl = document.createElement('div');
     titleEl.className = 'message-title';
     titleEl.textContent = msg.title || 'Sem título';
     titleEl.dataset.raw = msg.title || '';
-    card.appendChild(titleEl);
+    body.appendChild(titleEl);
 
     const meta = document.createElement('div');
     meta.className = 'message-meta';
     meta.textContent = msg.sentAt
       ? `Criada em ${formatDate(msg.createdAt)} · Enviada pela última vez em ${formatDate(msg.sentAt)}${msg.sendCount ? ` (${msg.sendCount}x)` : ''}`
       : `Criada em ${formatDate(msg.createdAt)}`;
-
-    card.appendChild(meta);
+    body.appendChild(meta);
 
     let textEl = null;
 
     if (msg.mediaFile) {
-      card.appendChild(criarMiniaturaMidia(msg));
+      body.appendChild(criarMiniaturaMidia(msg));
     }
 
     if (msg.text) {
       textEl = document.createElement('div');
       textEl.className = 'message-text';
       textEl.textContent = msg.text;
-      card.appendChild(textEl);
+      body.appendChild(textEl);
     }
 
     const actions = document.createElement('div');
@@ -380,11 +506,23 @@ function renderMessages(messages) {
     deleteBtn.addEventListener('click', () => excluirMensagem(msg.id));
     actions.appendChild(deleteBtn);
 
-    card.appendChild(actions);
-    card.appendChild(mediaFormWrap);
-    card.appendChild(scheduleFormWrap);
-    messagesList.appendChild(card);
-  });
+    body.appendChild(actions);
+    body.appendChild(mediaFormWrap);
+    body.appendChild(scheduleFormWrap);
+
+    const collapseBtn = document.createElement('button');
+    collapseBtn.className = 'btn-collapse';
+    collapseBtn.textContent = '▲ Recolher';
+    collapseBtn.addEventListener('click', () => montarCompacto());
+    body.appendChild(collapseBtn);
+
+    row.appendChild(body);
+
+    if (autoEditar) editarMensagem(msg.id, titleEl, textEl, editBtn);
+  }
+
+  montarCompacto();
+  return row;
 }
 
 function criarFormularioMidia(msg) {
@@ -629,9 +767,61 @@ function renderAgendamentos(messages) {
   }
 
   messages.forEach(msg => {
-    const ag = msg.schedule;
-    const card = document.createElement('div');
-    card.className = 'message-card';
+    messagesList.appendChild(criarLinhaAgendamento(msg));
+  });
+}
+
+function criarLinhaAgendamento(msg) {
+  const ag = msg.schedule;
+  const row = document.createElement('div');
+  row.className = 'msg-row';
+
+  function montarCompacto() {
+    row.innerHTML = '';
+    row.classList.remove('expanded');
+
+    const main = document.createElement('div');
+    main.className = 'msg-row-main';
+    main.addEventListener('click', () => montarExpandido());
+
+    const titleLine = document.createElement('div');
+    titleLine.className = 'msg-row-title';
+    titleLine.append(msg.title || 'Sem título');
+    if (msg.mediaFile) {
+      const clip = document.createElement('span');
+      clip.className = 'clip-icon';
+      clip.textContent = '📎';
+      titleLine.appendChild(clip);
+    }
+    const badge = document.createElement('span');
+    badge.className = `status-badge ${ag.status}`;
+    badge.textContent = STATUS_LABELS[ag.status] || ag.status;
+    titleLine.appendChild(badge);
+    main.appendChild(titleLine);
+
+    const previewLine = document.createElement('div');
+    previewLine.className = 'msg-row-preview';
+    previewLine.textContent = msg.text
+      ? `Preview: ${truncarTexto(msg.text, 70)}`
+      : (msg.mediaFile ? '📎 Mídia anexada, sem texto' : '');
+    main.appendChild(previewLine);
+
+    const dateLine = document.createElement('div');
+    dateLine.className = 'msg-row-date';
+    dateLine.textContent = ag.type === 'once'
+      ? `Uma vez — ${formatDate(ag.scheduledAt)}`
+      : `Recorrente — ${ag.time} · ${descreverRecorrencia(ag)}`;
+    main.appendChild(dateLine);
+
+    row.appendChild(main);
+  }
+
+  function montarExpandido() {
+    row.innerHTML = '';
+    row.classList.add('expanded');
+
+    const body = document.createElement('div');
+    body.className = 'msg-row-expanded-body';
 
     const titleRow = document.createElement('div');
     titleRow.style.display = 'flex';
@@ -645,22 +835,15 @@ function renderAgendamentos(messages) {
 
     const badge = document.createElement('span');
     badge.className = `status-badge ${ag.status}`;
-    badge.textContent = {
-      programado: 'Programado',
-      executado: 'Executado',
-      cancelado: 'Cancelado',
-      ativo: 'Ativo',
-      pausado: 'Pausado',
-      erro: 'Erro'
-    }[ag.status] || ag.status;
+    badge.textContent = STATUS_LABELS[ag.status] || ag.status;
 
     titleRow.append(titleEl, badge);
-    card.appendChild(titleRow);
+    body.appendChild(titleRow);
 
     const meta = document.createElement('div');
     meta.className = 'message-meta';
     meta.textContent = `Criada em ${formatDate(msg.createdAt)}`;
-    card.appendChild(meta);
+    body.appendChild(meta);
 
     const info = document.createElement('div');
     info.className = 'schedule-info';
@@ -672,24 +855,24 @@ function renderAgendamentos(messages) {
         `Próxima execução: ${ag.nextRun ? formatDate(ag.nextRun) : '—'}<br>` +
         `Última execução: ${ag.lastRun ? formatDate(ag.lastRun) : 'nunca'} · Execuções: ${ag.runCount || 0}`;
     }
-    card.appendChild(info);
+    body.appendChild(info);
 
     if (ag.lastError) {
       const errEl = document.createElement('div');
       errEl.className = 'schedule-error';
       errEl.textContent = '⚠️ ' + ag.lastError;
-      card.appendChild(errEl);
+      body.appendChild(errEl);
     }
 
     if (msg.mediaFile) {
-      card.appendChild(criarMiniaturaMidia(msg));
+      body.appendChild(criarMiniaturaMidia(msg));
     }
 
     if (msg.text) {
       const textEl = document.createElement('div');
       textEl.className = 'message-text';
       textEl.textContent = msg.text;
-      card.appendChild(textEl);
+      body.appendChild(textEl);
     }
 
     const actions = document.createElement('div');
@@ -739,9 +922,19 @@ function renderAgendamentos(messages) {
     deleteBtn.addEventListener('click', () => excluirMensagem(msg.id));
     actions.appendChild(deleteBtn);
 
-    card.appendChild(actions);
-    messagesList.appendChild(card);
-  });
+    body.appendChild(actions);
+
+    const collapseBtn = document.createElement('button');
+    collapseBtn.className = 'btn-collapse';
+    collapseBtn.textContent = '▲ Recolher';
+    collapseBtn.addEventListener('click', () => montarCompacto());
+    body.appendChild(collapseBtn);
+
+    row.appendChild(body);
+  }
+
+  montarCompacto();
+  return row;
 }
 
 async function cancelarAgendamento(id) {

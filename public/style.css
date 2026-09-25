@@ -313,7 +313,7 @@ button:active { opacity: 0.75; }
   padding: 0 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .message-card {
@@ -321,6 +321,88 @@ button:active { opacity: 0.75; }
   border-radius: var(--radius);
   padding: 14px 16px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+/* Linha compacta da lista */
+.msg-row {
+  background: var(--card-bg);
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  overflow: hidden;
+}
+
+.msg-row.expanded {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.msg-row-main {
+  padding: 10px 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.msg-row-title {
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.msg-row-preview {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.msg-row-date {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.clip-icon {
+  font-size: 12px;
+}
+
+.msg-row-actions {
+  display: flex;
+  gap: 4px;
+  padding: 0 12px 10px;
+  flex-wrap: wrap;
+}
+
+.icon-btn {
+  background: #eef3f6;
+  color: var(--text);
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.msg-row-expanded-body {
+  padding: 4px 16px 14px;
+}
+
+.btn-collapse {
+  background: #e2ebf0;
+  color: var(--text);
+  width: 100%;
+  margin-top: 4px;
+}
+
+.tab-btn .tab-count {
+  opacity: 0.85;
+  font-weight: 700;
 }
 
 .message-title {
