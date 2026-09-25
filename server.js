@@ -9,8 +9,11 @@ const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DATA_FILE = path.join(__dirname, 'data', 'messages.json');
-const UPLOAD_DIR = path.join(__dirname, 'data', 'uploads');
+// Se DATA_DIR estiver definida (aponta pro disco persistente do Render), os dados
+// sobrevivem a atualizações do site. Sem ela, cai no comportamento local de sempre.
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+const DATA_FILE = path.join(DATA_DIR, 'messages.json');
+const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
