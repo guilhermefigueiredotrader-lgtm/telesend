@@ -259,7 +259,7 @@ function renderMessages(messages) {
     const meta = document.createElement('div');
     meta.className = 'message-meta';
     meta.textContent = msg.status === 'enviada'
-      ? `Enviada em ${formatDate(msg.sentAt)}`
+      ? `Enviada pela última vez em ${formatDate(msg.sentAt)}`
       : `Criada em ${formatDate(msg.createdAt)}`;
 
     card.appendChild(meta);
@@ -329,6 +329,12 @@ function renderMessages(messages) {
       deleteBtn.addEventListener('click', () => excluirMensagem(msg.id));
       actions.appendChild(deleteBtn);
     } else {
+      const resendBtn = document.createElement('button');
+      resendBtn.className = 'btn-send';
+      resendBtn.textContent = '🚀 Enviar de novo';
+      resendBtn.addEventListener('click', () => enviarMensagem(msg.id, resendBtn, '🚀 Enviar de novo'));
+      actions.appendChild(resendBtn);
+
       const cloneBtn = document.createElement('button');
       cloneBtn.className = 'btn-clone';
       cloneBtn.textContent = '📋 Clonar';
@@ -614,7 +620,8 @@ async function removerAgendamento(id) {
   loadMessages();
 }
 
-async function enviarMensagem(id, btn) {
+async function enviarMensagem(id, btn, labelOriginal) {
+  const textoOriginal = labelOriginal || btn.textContent;
   if (!confirm('Enviar esta mensagem agora para o Telegram?')) return;
   btn.disabled = true;
   btn.textContent = 'Enviando...';
@@ -625,7 +632,7 @@ async function enviarMensagem(id, btn) {
   } else {
     alert('Erro ao enviar: ' + data.error);
     btn.disabled = false;
-    btn.textContent = '🚀 Enviar agora';
+    btn.textContent = textoOriginal;
   }
 }
 
