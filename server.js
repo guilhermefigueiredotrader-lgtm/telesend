@@ -138,9 +138,10 @@ app.post('/api/messages', (req, res) => {
       id: crypto.randomUUID(),
       title,
       text,
-      status: 'rascunho', // rascunho | enviada
+      status: 'rascunho',
       createdAt: new Date().toISOString(),
       sentAt: null,
+      sendCount: 0,
       mediaFile: req.file ? req.file.filename : null,
       mediaType: req.file ? mediaTypeFromMimetype(req.file.mimetype) : null,
       mediaOriginalName: req.file ? req.file.originalname : null,
@@ -166,9 +167,6 @@ app.put('/api/messages/:id', (req, res) => {
     const messages = readMessages();
     const msg = messages.find(m => m.id === req.params.id);
     if (!msg) return res.status(404).json({ error: 'Mensagem não encontrada.' });
-    if (msg.status === 'enviada') {
-      return res.status(400).json({ error: 'Não dá pra editar uma mensagem já enviada.' });
-    }
 
     if (req.file) {
       if (msg.mediaFile) fs.unlink(path.join(UPLOAD_DIR, msg.mediaFile), () => {});
@@ -213,6 +211,7 @@ app.post('/api/messages/:id/clone', (req, res) => {
     status: 'rascunho',
     createdAt: new Date().toISOString(),
     sentAt: null,
+    sendCount: 0,
     mediaFile: novoMediaFile,
     mediaType: original.mediaType,
     mediaOriginalName: original.mediaOriginalName,
@@ -251,8 +250,8 @@ app.post('/api/messages/:id/send', async (req, res) => {
 
   try {
     await enviarMensagemCompleta(msg);
-    msg.status = 'enviada';
     msg.sentAt = new Date().toISOString();
+    msg.sendCount = (msg.sendCount || 0) + 1;
     writeMessages(messages);
     res.json(msg);
   } catch (err) {
@@ -454,8 +453,8 @@ async function verificarAgendamentos() {
       mudou = true;
       try {
         await enviarMensagemCompleta(msg);
-        msg.status = 'enviada';
         msg.sentAt = agora.toISOString();
+        msg.sendCount = (msg.sendCount || 0) + 1;
         ag.status = 'executado';
         ag.lastRun = agora.toISOString();
       } catch (err) {

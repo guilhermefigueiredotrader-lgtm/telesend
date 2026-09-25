@@ -245,12 +245,12 @@ async function loadMessages() {
   }
 
   if (currentFilter === 'rascunho') {
-    const filtered = all.filter(m => m.status === 'rascunho' && (!m.schedule || m.schedule.status === 'cancelado'));
+    const filtered = all.filter(m => !m.schedule || m.schedule.status === 'cancelado');
     renderMessages(filtered);
     return;
   }
 
-  renderMessages(all.filter(m => m.status === 'enviada'));
+  renderMessages(all.filter(m => !!m.sentAt));
 }
 
 function matchesSubFilter(msg) {
@@ -306,8 +306,8 @@ function renderMessages(messages) {
 
     const meta = document.createElement('div');
     meta.className = 'message-meta';
-    meta.textContent = msg.status === 'enviada'
-      ? `Enviada pela última vez em ${formatDate(msg.sentAt)}`
+    meta.textContent = msg.sentAt
+      ? `Criada em ${formatDate(msg.createdAt)} · Enviada pela última vez em ${formatDate(msg.sentAt)}${msg.sendCount ? ` (${msg.sendCount}x)` : ''}`
       : `Criada em ${formatDate(msg.createdAt)}`;
 
     card.appendChild(meta);
@@ -327,84 +327,62 @@ function renderMessages(messages) {
 
     const actions = document.createElement('div');
     actions.className = 'message-actions';
-    let scheduleFormWrap = null;
-    let mediaFormWrap = null;
 
-    if (msg.status === 'rascunho') {
-      const sendBtn = document.createElement('button');
-      sendBtn.className = 'btn-send';
-      sendBtn.textContent = '🚀 Enviar agora';
-      sendBtn.addEventListener('click', () => enviarMensagem(msg.id, sendBtn));
-      actions.appendChild(sendBtn);
+    const sendBtn = document.createElement('button');
+    sendBtn.className = 'btn-send';
+    sendBtn.textContent = msg.sentAt ? '🚀 Enviar de novo' : '🚀 Enviar agora';
+    sendBtn.addEventListener('click', () => enviarMensagem(msg.id, sendBtn, sendBtn.textContent));
+    actions.appendChild(sendBtn);
 
-      const editBtn = document.createElement('button');
-      editBtn.className = 'btn-edit';
-      editBtn.textContent = '✏️ Editar';
-      editBtn.addEventListener('click', () => editarMensagem(msg.id, titleEl, textEl, editBtn));
-      actions.appendChild(editBtn);
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn-edit';
+    editBtn.textContent = '✏️ Editar';
+    editBtn.addEventListener('click', () => editarMensagem(msg.id, titleEl, textEl, editBtn));
+    actions.appendChild(editBtn);
 
-      mediaFormWrap = document.createElement('div');
-      mediaFormWrap.classList.add('hidden');
+    const mediaFormWrap = document.createElement('div');
+    mediaFormWrap.classList.add('hidden');
 
-      const mediaBtn = document.createElement('button');
-      mediaBtn.className = 'btn-schedule';
-      mediaBtn.textContent = msg.mediaFile ? '📎 Trocar mídia' : '📎 Anexar mídia';
-      mediaBtn.addEventListener('click', () => {
-        const aberto = !mediaFormWrap.classList.contains('hidden');
-        mediaFormWrap.classList.toggle('hidden');
-        mediaFormWrap.innerHTML = '';
-        if (!aberto) mediaFormWrap.appendChild(criarFormularioMidia(msg));
-      });
-      actions.appendChild(mediaBtn);
+    const mediaBtn = document.createElement('button');
+    mediaBtn.className = 'btn-schedule';
+    mediaBtn.textContent = msg.mediaFile ? '📎 Trocar mídia' : '📎 Anexar mídia';
+    mediaBtn.addEventListener('click', () => {
+      const aberto = !mediaFormWrap.classList.contains('hidden');
+      mediaFormWrap.classList.toggle('hidden');
+      mediaFormWrap.innerHTML = '';
+      if (!aberto) mediaFormWrap.appendChild(criarFormularioMidia(msg));
+    });
+    actions.appendChild(mediaBtn);
 
-      const cloneBtn = document.createElement('button');
-      cloneBtn.className = 'btn-clone';
-      cloneBtn.textContent = '📋 Clonar';
-      cloneBtn.addEventListener('click', () => clonarMensagem(msg.id));
-      actions.appendChild(cloneBtn);
+    const cloneBtn = document.createElement('button');
+    cloneBtn.className = 'btn-clone';
+    cloneBtn.textContent = '📋 Clonar';
+    cloneBtn.addEventListener('click', () => clonarMensagem(msg.id));
+    actions.appendChild(cloneBtn);
 
-      scheduleFormWrap = document.createElement('div');
-      scheduleFormWrap.classList.add('hidden');
+    const scheduleFormWrap = document.createElement('div');
+    scheduleFormWrap.classList.add('hidden');
 
-      const scheduleBtn = document.createElement('button');
-      scheduleBtn.className = 'btn-schedule';
-      scheduleBtn.textContent = '⏰ Agendar';
-      scheduleBtn.addEventListener('click', () => {
-        const aberto = !scheduleFormWrap.classList.contains('hidden');
-        scheduleFormWrap.classList.toggle('hidden');
-        scheduleFormWrap.innerHTML = '';
-        if (!aberto) scheduleFormWrap.appendChild(criarFormularioAgendamento(msg.id));
-      });
-      actions.appendChild(scheduleBtn);
+    const scheduleBtn = document.createElement('button');
+    scheduleBtn.className = 'btn-schedule';
+    scheduleBtn.textContent = '⏰ Agendar';
+    scheduleBtn.addEventListener('click', () => {
+      const aberto = !scheduleFormWrap.classList.contains('hidden');
+      scheduleFormWrap.classList.toggle('hidden');
+      scheduleFormWrap.innerHTML = '';
+      if (!aberto) scheduleFormWrap.appendChild(criarFormularioAgendamento(msg.id));
+    });
+    actions.appendChild(scheduleBtn);
 
-      const deleteBtn = document.createElement('button');
-      deleteBtn.className = 'btn-delete';
-      deleteBtn.textContent = '🗑️ Excluir';
-      deleteBtn.addEventListener('click', () => excluirMensagem(msg.id));
-      actions.appendChild(deleteBtn);
-    } else {
-      const resendBtn = document.createElement('button');
-      resendBtn.className = 'btn-send';
-      resendBtn.textContent = '🚀 Enviar de novo';
-      resendBtn.addEventListener('click', () => enviarMensagem(msg.id, resendBtn, '🚀 Enviar de novo'));
-      actions.appendChild(resendBtn);
-
-      const cloneBtn = document.createElement('button');
-      cloneBtn.className = 'btn-clone';
-      cloneBtn.textContent = '📋 Clonar';
-      cloneBtn.addEventListener('click', () => clonarMensagem(msg.id));
-      actions.appendChild(cloneBtn);
-
-      const deleteBtn = document.createElement('button');
-      deleteBtn.className = 'btn-delete';
-      deleteBtn.textContent = '🗑️ Excluir do histórico';
-      deleteBtn.addEventListener('click', () => excluirMensagem(msg.id));
-      actions.appendChild(deleteBtn);
-    }
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'btn-delete';
+    deleteBtn.textContent = '🗑️ Excluir';
+    deleteBtn.addEventListener('click', () => excluirMensagem(msg.id));
+    actions.appendChild(deleteBtn);
 
     card.appendChild(actions);
-    if (mediaFormWrap) card.appendChild(mediaFormWrap);
-    if (scheduleFormWrap) card.appendChild(scheduleFormWrap);
+    card.appendChild(mediaFormWrap);
+    card.appendChild(scheduleFormWrap);
     messagesList.appendChild(card);
   });
 }
