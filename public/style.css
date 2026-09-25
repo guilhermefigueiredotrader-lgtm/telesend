@@ -186,6 +186,40 @@ button:active { opacity: 0.75; }
   color: white;
 }
 
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -6px 16px 16px;
+  position: relative;
+}
+
+.search-input {
+  flex: 1;
+  border: 1px solid #d8e0e5;
+  border-radius: 10px;
+  padding: 10px 36px 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  background: white;
+}
+
+.search-input:focus {
+  outline: 2px solid var(--tg-blue);
+  border-color: transparent;
+}
+
+.btn-clear-search {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  color: var(--muted);
+  padding: 4px 8px;
+  font-size: 14px;
+}
+
 .subtabs {
   display: flex;
   gap: 6px;

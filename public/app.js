@@ -14,10 +14,13 @@ const subtabBtns = document.querySelectorAll('.subtab-btn');
 const mediaInput = document.getElementById('media-input');
 const mediaFilename = document.getElementById('media-filename');
 const mediaPreview = document.getElementById('media-preview');
+const searchInput = document.getElementById('search-input');
+const clearSearchBtn = document.getElementById('clear-search-btn');
 
 let sitePassword = sessionStorage.getItem('sitePassword') || '';
 let currentFilter = 'rascunho';
 let currentSubFilter = 'todos';
+let currentSearch = '';
 let selectedFile = null;
 
 const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -95,6 +98,26 @@ subtabBtns.forEach(btn => {
   });
 });
 
+searchInput.addEventListener('input', () => {
+  currentSearch = searchInput.value.trim().toLowerCase();
+  clearSearchBtn.classList.toggle('hidden', !currentSearch);
+  loadMessages();
+});
+
+clearSearchBtn.addEventListener('click', () => {
+  searchInput.value = '';
+  currentSearch = '';
+  clearSearchBtn.classList.add('hidden');
+  loadMessages();
+});
+
+function matchesSearch(msg) {
+  if (!currentSearch) return true;
+  const titulo = (msg.title || '').toLowerCase();
+  const texto = (msg.text || '').toLowerCase();
+  return titulo.includes(currentSearch) || texto.includes(currentSearch);
+}
+
 mediaInput.addEventListener('change', () => {
   selectedFile = mediaInput.files[0] || null;
   renderNewMediaPreview();
@@ -166,7 +189,7 @@ saveBtn.addEventListener('click', async () => {
 async function loadMessages() {
   const res = await fetch('/api/messages', { headers: authHeaders() });
   if (!res.ok) return;
-  const all = await res.json();
+  const all = await res.json().then(list => list.filter(matchesSearch));
 
   if (currentFilter === 'agendamentos') {
     renderAgendamentos(all.filter(m => m.schedule).filter(matchesSubFilter));
@@ -212,9 +235,13 @@ function renderMessages(messages) {
   if (messages.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
-    empty.textContent = currentFilter === 'rascunho'
-      ? 'Nenhum rascunho ainda. Escreva sua primeira mensagem acima!'
-      : 'Nenhuma mensagem enviada ainda.';
+    if (currentSearch) {
+      empty.textContent = `Nenhum resultado pra "${searchInput.value.trim()}".`;
+    } else {
+      empty.textContent = currentFilter === 'rascunho'
+        ? 'Nenhum rascunho ainda. Escreva sua primeira mensagem acima!'
+        : 'Nenhuma mensagem enviada ainda.';
+    }
     messagesList.appendChild(empty);
     return;
   }
@@ -446,7 +473,9 @@ function renderAgendamentos(messages) {
   if (messages.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
-    empty.textContent = 'Nenhum agendamento por aqui ainda.';
+    empty.textContent = currentSearch
+      ? `Nenhum resultado pra "${searchInput.value.trim()}".`
+      : 'Nenhum agendamento por aqui ainda.';
     messagesList.appendChild(empty);
     return;
   }
