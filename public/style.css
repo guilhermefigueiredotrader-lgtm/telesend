@@ -84,6 +84,19 @@ textarea { resize: vertical; }
 
 textarea:focus, .title-input:focus { outline: 2px solid var(--tg-blue); border-color: transparent; }
 
+.format-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin: -4px 0 10px;
+}
+
+.format-hint code {
+  background: #eef3f6;
+  padding: 1px 5px;
+  border-radius: 5px;
+  font-size: 11px;
+}
+
 button {
   cursor: pointer;
   border: none;

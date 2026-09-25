@@ -322,11 +322,26 @@ async function enviarMensagemCompleta(msg) {
   }
 }
 
+// Tenta enviar com formatação (*negrito*, _itálico_, `código`, [link](url)).
+// Se o texto tiver um asterisco/underline "solto" que não forma um par válido,
+// o Telegram recusa o parse — nesse caso reenviamos sem formatação, sem perder a mensagem.
+async function chamarTelegramComFallback(metodo, montarForm) {
+  try {
+    return await chamarTelegram(metodo, montarForm(true));
+  } catch (err) {
+    if (!/can't parse entities/i.test(err.message)) throw err;
+    return chamarTelegram(metodo, montarForm(false));
+  }
+}
+
 async function enviarTextoSimples(texto) {
-  const form = new FormData();
-  form.append('chat_id', CHAT_ID);
-  form.append('text', texto);
-  return chamarTelegram('sendMessage', form);
+  return chamarTelegramComFallback('sendMessage', (comFormatacao) => {
+    const form = new FormData();
+    form.append('chat_id', CHAT_ID);
+    form.append('text', texto);
+    if (comFormatacao) form.append('parse_mode', 'Markdown');
+    return form;
+  });
 }
 
 async function enviarComMidia(msg) {
@@ -335,14 +350,16 @@ async function enviarComMidia(msg) {
   const campoArquivo = msg.mediaType === 'video' ? 'video' : 'photo';
   const legendaCabe = msg.text.length <= TELEGRAM_CAPTION_LIMIT;
 
-  const form = new FormData();
-  form.append('chat_id', CHAT_ID);
-  form.append(campoArquivo, fs.createReadStream(caminhoArquivo));
-  if (msg.text && legendaCabe) {
-    form.append('caption', msg.text);
-  }
-
-  await chamarTelegram(metodo, form);
+  await chamarTelegramComFallback(metodo, (comFormatacao) => {
+    const form = new FormData();
+    form.append('chat_id', CHAT_ID);
+    form.append(campoArquivo, fs.createReadStream(caminhoArquivo));
+    if (msg.text && legendaCabe) {
+      form.append('caption', msg.text);
+      if (comFormatacao) form.append('parse_mode', 'Markdown');
+    }
+    return form;
+  });
 
   // Se o texto for grande demais pra caber na legenda, manda como mensagem à parte
   if (msg.text && !legendaCabe) {
