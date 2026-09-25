@@ -36,7 +36,7 @@ const upload = multer({
   }
 });
 
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Essa rota fica de fora da proteção por senha: é ela que diz ao site
@@ -85,6 +85,36 @@ function mediaTypeFromMimetype(mimetype) {
 // Listar mensagens
 app.get('/api/messages', (req, res) => {
   res.json(readMessages());
+});
+
+// --- Backup e restauração (usado antes/depois de atualizações no servidor) ---
+// O disco do servidor pode não sobreviver a um novo deploy, então essas rotas
+// permitem salvar tudo (mensagens + arquivos) e devolver exatamente como estava.
+
+// Restaura a lista de mensagens inteira, exatamente como veio do backup
+// (preserva id, status, agendamento, tudo — não é uma recriação).
+app.post('/api/admin/restore-messages', (req, res) => {
+  const messages = req.body;
+  if (!Array.isArray(messages)) {
+    return res.status(400).json({ error: 'Formato inválido: esperado uma lista de mensagens.' });
+  }
+  writeMessages(messages);
+  res.json({ ok: true, count: messages.length });
+});
+
+// Sobe um arquivo de mídia (mesmas checagens do upload normal: só imagem/vídeo,
+// nome gerado com segurança) e devolve o nome salvo, pra usar no restore-messages.
+app.post('/api/admin/upload-media', (req, res) => {
+  upload.single('media')(req, res, (err) => {
+    if (err) {
+      const mensagem = err.code === 'LIMIT_FILE_SIZE'
+        ? 'Esse arquivo é maior que 50MB, que é o limite do Telegram para bots.'
+        : err.message;
+      return res.status(400).json({ error: mensagem });
+    }
+    if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+    res.json({ filename: req.file.filename });
+  });
 });
 
 // Criar rascunho novo (texto e/ou um arquivo de imagem/vídeo)
