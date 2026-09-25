@@ -376,9 +376,30 @@ async function enviarMensagemCompleta(msg) {
   }
 }
 
-// Tenta enviar com formatação (*negrito*, _itálico_, `código`, [link](url)).
-// Se o texto tiver um asterisco/underline "solto" que não forma um par válido,
-// o Telegram recusa o parse — nesse caso reenviamos sem formatação, sem perder a mensagem.
+const escaparHtml = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// Converte a formatação do site (*negrito*, _itálico_, `código`, [link](url)) em HTML do Telegram.
+// O modo "Markdown" antigo do Telegram não aceita estilos um dentro do outro;
+// em HTML dá pra combinar: _*negrito e itálico*_ ou *_negrito e itálico_*.
+function markdownParaHtml(texto) {
+  const guardados = [];
+  const guardar = (html) => `\u0000${guardados.push(html) - 1}\u0000`;
+
+  let s = escaparHtml(texto)
+    .replace(/`([^`]+)`/g, (_, c) => guardar(`<code>${c}</code>`))
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, t, url) => guardar(`<a href="${url.replace(/"/g, '&quot;')}">${t}</a>`))
+    // Links soltos ficam protegidos, pra um "_" dentro da URL não virar itálico
+    .replace(/https?:\/\/[^\s*]+/g, (url) => guardar(url));
+
+  s = s
+    .replace(/\*([^*]+)\*/g, '<b>$1</b>')
+    .replace(/_([^_]+)_/g, '<i>$1</i>');
+
+  return s.replace(/\u0000(\d+)\u0000/g, (_, i) => guardados[i]);
+}
+
+// Tenta enviar com formatação. Se o Telegram recusar (ex.: estilos cruzados
+// como *a _b* c_), reenviamos o texto original sem formatação, sem perder a mensagem.
 async function chamarTelegramComFallback(metodo, montarForm) {
   try {
     return await chamarTelegram(metodo, montarForm(true));
@@ -392,8 +413,8 @@ async function enviarTextoSimples(texto) {
   return chamarTelegramComFallback('sendMessage', (comFormatacao) => {
     const form = new FormData();
     form.append('chat_id', CHAT_ID);
-    form.append('text', texto);
-    if (comFormatacao) form.append('parse_mode', 'Markdown');
+    form.append('text', comFormatacao ? markdownParaHtml(texto) : texto);
+    if (comFormatacao) form.append('parse_mode', 'HTML');
     return form;
   });
 }
@@ -409,8 +430,8 @@ async function enviarComMidia(msg) {
     form.append('chat_id', CHAT_ID);
     form.append(campoArquivo, fs.createReadStream(caminhoArquivo));
     if (msg.text && legendaCabe) {
-      form.append('caption', msg.text);
-      if (comFormatacao) form.append('parse_mode', 'Markdown');
+      form.append('caption', comFormatacao ? markdownParaHtml(msg.text) : msg.text);
+      if (comFormatacao) form.append('parse_mode', 'HTML');
     }
     return form;
   });
