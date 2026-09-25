@@ -122,23 +122,45 @@ app.post('/api/messages', (req, res) => {
   });
 });
 
-// Editar o título e/ou texto de um rascunho (a mídia anexada não muda; exclua e crie outra pra trocar o arquivo)
+// Editar o título, texto e/ou a mídia (foto/vídeo) de um rascunho
 app.put('/api/messages/:id', (req, res) => {
-  const { title, text } = req.body;
-  const messages = readMessages();
-  const msg = messages.find(m => m.id === req.params.id);
-  if (!msg) return res.status(404).json({ error: 'Mensagem não encontrada.' });
-  if (msg.status === 'enviada') {
-    return res.status(400).json({ error: 'Não dá pra editar uma mensagem já enviada.' });
-  }
-  const novoTexto = (text || '').trim();
-  if (!novoTexto && !msg.mediaFile) {
-    return res.status(400).json({ error: 'Mande um texto ou anexe uma imagem/vídeo.' });
-  }
-  msg.title = (title || '').trim();
-  msg.text = novoTexto;
-  writeMessages(messages);
-  res.json(msg);
+  upload.single('media')(req, res, (err) => {
+    if (err) {
+      const mensagem = err.code === 'LIMIT_FILE_SIZE'
+        ? 'Esse arquivo é maior que 50MB, que é o limite do Telegram para bots.'
+        : err.message;
+      return res.status(400).json({ error: mensagem });
+    }
+
+    const { title, text, removeMedia } = req.body;
+    const messages = readMessages();
+    const msg = messages.find(m => m.id === req.params.id);
+    if (!msg) return res.status(404).json({ error: 'Mensagem não encontrada.' });
+    if (msg.status === 'enviada') {
+      return res.status(400).json({ error: 'Não dá pra editar uma mensagem já enviada.' });
+    }
+
+    if (req.file) {
+      if (msg.mediaFile) fs.unlink(path.join(UPLOAD_DIR, msg.mediaFile), () => {});
+      msg.mediaFile = req.file.filename;
+      msg.mediaType = mediaTypeFromMimetype(req.file.mimetype);
+      msg.mediaOriginalName = req.file.originalname;
+    } else if (removeMedia === 'true' && msg.mediaFile) {
+      fs.unlink(path.join(UPLOAD_DIR, msg.mediaFile), () => {});
+      msg.mediaFile = null;
+      msg.mediaType = null;
+      msg.mediaOriginalName = null;
+    }
+
+    const novoTexto = (text || '').trim();
+    if (!novoTexto && !msg.mediaFile) {
+      return res.status(400).json({ error: 'Mande um texto ou anexe uma imagem/vídeo.' });
+    }
+    msg.title = (title || '').trim();
+    msg.text = novoTexto;
+    writeMessages(messages);
+    res.json(msg);
+  });
 });
 
 // Clonar mensagem: cria uma cópia independente como novo rascunho (sem agendamento e sem status de enviada)

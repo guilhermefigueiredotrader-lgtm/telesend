@@ -289,6 +289,7 @@ function renderMessages(messages) {
     const actions = document.createElement('div');
     actions.className = 'message-actions';
     let scheduleFormWrap = null;
+    let mediaFormWrap = null;
 
     if (msg.status === 'rascunho') {
       const sendBtn = document.createElement('button');
@@ -302,6 +303,20 @@ function renderMessages(messages) {
       editBtn.textContent = '✏️ Editar';
       editBtn.addEventListener('click', () => editarMensagem(msg.id, titleEl, textEl, editBtn));
       actions.appendChild(editBtn);
+
+      mediaFormWrap = document.createElement('div');
+      mediaFormWrap.classList.add('hidden');
+
+      const mediaBtn = document.createElement('button');
+      mediaBtn.className = 'btn-schedule';
+      mediaBtn.textContent = msg.mediaFile ? '📎 Trocar mídia' : '📎 Anexar mídia';
+      mediaBtn.addEventListener('click', () => {
+        const aberto = !mediaFormWrap.classList.contains('hidden');
+        mediaFormWrap.classList.toggle('hidden');
+        mediaFormWrap.innerHTML = '';
+        if (!aberto) mediaFormWrap.appendChild(criarFormularioMidia(msg));
+      });
+      actions.appendChild(mediaBtn);
 
       const cloneBtn = document.createElement('button');
       cloneBtn.className = 'btn-clone';
@@ -349,9 +364,119 @@ function renderMessages(messages) {
     }
 
     card.appendChild(actions);
+    if (mediaFormWrap) card.appendChild(mediaFormWrap);
     if (scheduleFormWrap) card.appendChild(scheduleFormWrap);
     messagesList.appendChild(card);
   });
+}
+
+function criarFormularioMidia(msg) {
+  const form = document.createElement('div');
+  form.className = 'schedule-form';
+  let novoArquivo = null;
+
+  const preview = document.createElement('div');
+  preview.className = 'media-preview';
+
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/*,video/*';
+  fileInput.className = 'hidden';
+
+  const attachLabel = document.createElement('label');
+  attachLabel.className = 'btn-attach';
+  attachLabel.textContent = novoArquivo ? 'Trocar arquivo escolhido' : '📎 Escolher arquivo';
+
+  const attachRow = document.createElement('div');
+  attachRow.className = 'attach-row';
+  attachRow.append(attachLabel, fileInput);
+  attachLabel.addEventListener('click', () => fileInput.click());
+
+  function renderPreview() {
+    preview.innerHTML = '';
+    if (!novoArquivo) {
+      preview.classList.add('hidden');
+      return;
+    }
+    preview.classList.remove('hidden');
+    const url = URL.createObjectURL(novoArquivo);
+    const isVideo = novoArquivo.type.startsWith('video/');
+    const el = document.createElement(isVideo ? 'video' : 'img');
+    el.src = url;
+    if (isVideo) el.controls = true;
+    preview.appendChild(el);
+  }
+
+  fileInput.addEventListener('change', () => {
+    novoArquivo = fileInput.files[0] || null;
+    renderPreview();
+  });
+
+  form.append(attachRow, preview);
+
+  const actionsRow = document.createElement('div');
+  actionsRow.className = 'schedule-form-actions';
+
+  const confirmBtn = document.createElement('button');
+  confirmBtn.className = 'btn-confirm-schedule';
+  confirmBtn.textContent = '💾 Salvar mídia';
+  confirmBtn.addEventListener('click', async () => {
+    if (!novoArquivo) {
+      alert('Escolha um arquivo primeiro.');
+      return;
+    }
+    confirmBtn.disabled = true;
+    const formData = new FormData();
+    formData.append('title', msg.title || '');
+    formData.append('text', msg.text || '');
+    formData.append('media', novoArquivo);
+    const res = await fetch(`/api/messages/${msg.id}`, { method: 'PUT', headers: authHeaders(), body: formData });
+    const data = await res.json().catch(() => ({}));
+    confirmBtn.disabled = false;
+    if (res.ok) {
+      loadMessages();
+    } else {
+      alert('Não deu pra salvar a mídia: ' + (data.error || 'erro desconhecido'));
+    }
+  });
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'btn-cancel-form';
+  cancelBtn.textContent = 'Cancelar';
+  cancelBtn.addEventListener('click', () => {
+    form.classList.add('hidden');
+    form.innerHTML = '';
+  });
+
+  actionsRow.append(confirmBtn, cancelBtn);
+  form.appendChild(actionsRow);
+
+  if (msg.mediaFile) {
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'btn-delete';
+    removeBtn.textContent = '🗑️ Remover mídia atual';
+    removeBtn.style.marginTop = '8px';
+    removeBtn.style.width = '100%';
+    removeBtn.addEventListener('click', async () => {
+      if (!confirm('Remover a foto/vídeo desta mensagem?')) return;
+      removeBtn.disabled = true;
+      const formData = new FormData();
+      formData.append('title', msg.title || '');
+      formData.append('text', msg.text || '');
+      formData.append('removeMedia', 'true');
+      const res = await fetch(`/api/messages/${msg.id}`, { method: 'PUT', headers: authHeaders(), body: formData });
+      const data = await res.json().catch(() => ({}));
+      removeBtn.disabled = false;
+      if (res.ok) {
+        loadMessages();
+      } else {
+        alert('Não deu pra remover: ' + (data.error || 'erro desconhecido'));
+      }
+    });
+    form.appendChild(removeBtn);
+  }
+
+  return form;
 }
 
 function criarFormularioAgendamento(id) {
