@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TeleSend</title>
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="login-screen" class="screen hidden">
+    <div class="card login-card">
+      <img src="assets/logo.png" alt="TeleSend" class="brand-logo" />
+      <p>Digite a senha para entrar</p>
+      <input type="password" id="password-input" placeholder="Senha" />
+      <button id="login-btn">Entrar</button>
+      <p id="login-error" class="error hidden"></p>
+    </div>
+  </div>
+
+  <div id="app-screen" class="screen hidden">
+    <header>
+      <img src="assets/logo.png" alt="TeleSend" class="brand-logo header-logo" />
+      <p class="subtitle">Escreva agora, envie quando quiser.</p>
+    </header>
+
+    <div id="config-warning" class="card warning hidden">
+      ⚠️ O site ainda não está configurado com o Bot do Telegram. Configure
+      <code>TELEGRAM_BOT_TOKEN</code> e <code>TELEGRAM_CHAT_ID</code> no servidor.
+    </div>
+
+    <div class="card">
+      <input type="text" id="new-title" placeholder="Título (pra você identificar depois)" class="title-input" />
+      <textarea id="new-message" placeholder="Escreva sua mensagem aqui..." rows="4"></textarea>
+
+      <div id="media-preview" class="media-preview hidden"></div>
+
+      <div class="attach-row">
+        <label for="media-input" class="btn-attach">📎 Anexar foto/vídeo</label>
+        <input type="file" id="media-input" accept="image/*,video/*" class="hidden" />
+        <span id="media-filename" class="media-filename"></span>
+      </div>
+
+      <button id="save-btn">💾 Salvar rascunho</button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-filter="rascunho">📝 Rascunhos</button>
+      <button class="tab-btn" data-filter="agendamentos">📅 Agendamentos</button>
+      <button class="tab-btn" data-filter="enviada">✅ Enviadas</button>
+    </div>
+
+    <div id="schedule-subtabs" class="subtabs hidden">
+      <button class="subtab-btn active" data-subfilter="todos">Todos</button>
+      <button class="subtab-btn" data-subfilter="programado">🕐 Programados</button>
+      <button class="subtab-btn" data-subfilter="recorrente">🔁 Recorrentes</button>
+      <button class="subtab-btn" data-subfilter="executado">✅ Executados</button>
+      <button class="subtab-btn" data-subfilter="cancelado">❌ Cancelados</button>
+    </div>
+
+    <div id="messages-list"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

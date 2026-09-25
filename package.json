@@ -1,0 +1,19 @@
+{
+  "name": "telegram-mensageiro",
+  "version": "1.0.0",
+  "description": "TeleSend — site para preparar e agendar mensagens para um canal/grupo do Telegram",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "node-fetch": "^2.7.0",
+    "dotenv": "^16.4.5",
+    "multer": "^2.0.0",
+    "form-data": "^4.0.0"
+  }
+}
